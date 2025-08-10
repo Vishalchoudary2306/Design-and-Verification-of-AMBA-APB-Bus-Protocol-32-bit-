@@ -1,0 +1,484 @@
+//============================================================================
+// CLEAN APB Code - No Timing Conflicts, Correct Coverage
+//============================================================================
+
+//----------------------------------------------------------------------------
+// Interface (keeping original name)
+//----------------------------------------------------------------------------
+interface abp_if();
+  logic pclk;
+  logic presetn;
+  logic [31:0] paddr;
+  logic psel;
+  logic penable;
+  logic [7:0] pwdata;
+  logic pwrite;
+  logic [7:0] prdata;
+  logic pready;
+  logic pslverr;
+endinterface
+
+//----------------------------------------------------------------------------
+// Enhanced Transaction Class - Better Address Distribution
+//----------------------------------------------------------------------------
+class transaction;
+ 
+  rand bit [31:0] paddr;
+  rand bit [7:0] pwdata;
+  rand bit psel;
+  rand bit penable;
+  randc bit pwrite;
+  bit [7:0] prdata;
+  bit pready;
+  bit pslverr;
+  
+  // ENHANCED: Better address distribution for coverage
+  constraint addr_c {
+    paddr dist {
+      [0:3]   := 25,    // Block 0
+      [4:7]   := 25,    // Block 1  
+      [8:11]  := 25,    // Block 2
+      [12:15] := 25     // Block 3
+    };
+  }
+  
+  constraint data_c {
+    pwdata dist {
+      [0:85]     := 33,    // Low data
+      [86:170]   := 33,    // Mid data  
+      [171:255]  := 34     // High data
+    };
+  }
+  
+  function void display(input string tag);
+    $display("[%0s] :  paddr:%0d  pwdata:%0d pwrite:%0b  prdata:%0d pslverr:%0b @ %0t",tag,paddr,pwdata, pwrite, prdata, pslverr,$time);
+  endfunction
+  
+endclass
+
+//----------------------------------------------------------------------------
+// CLEAN: Coverage Collector Class - No Debug Spam
+//----------------------------------------------------------------------------
+class coverage_collector;
+  
+  int total_transactions = 0;
+  int write_transactions = 0;
+  int read_transactions = 0;
+  int error_transactions = 0;
+  int success_transactions = 0;
+  
+  logic addr_hit[16] = '{default:0};
+  int addr_count[16] = '{default:0};
+  
+  int low_data_count = 0;   // 0-85
+  int mid_data_count = 0;   // 86-170
+  int high_data_count = 0;  // 171-255
+  
+  function void sample_transaction(transaction tr);
+    total_transactions++;
+    
+    if (tr.pwrite) write_transactions++; 
+    else read_transactions++;
+    
+    if (tr.pslverr) error_transactions++; 
+    else success_transactions++;
+    
+    // Address coverage
+    if (tr.paddr < 16) begin
+      addr_hit[tr.paddr] = 1;
+      addr_count[tr.paddr]++;
+    end
+    
+    // Data coverage (only for write transactions)
+    if (tr.pwrite) begin
+      if (tr.pwdata <= 85) low_data_count++;
+      else if (tr.pwdata <= 170) mid_data_count++;
+      else high_data_count++;
+    end
+    
+    // Clean progress reporting
+    if (total_transactions % 20 == 0) begin
+      $display("[COV] Progress: %0d transactions, Address coverage: %.1f%%", 
+               total_transactions, get_address_coverage());
+    end
+  endfunction
+  
+  function real get_address_coverage();
+    int covered = 0;
+    for (int i = 0; i < 16; i++) if (addr_hit[i]) covered++;
+    return (covered * 100.0) / 16.0;
+  endfunction
+  
+  function logic is_100_percent_achieved();
+    // Check address coverage
+    for (int i = 0; i < 16; i++) if (!addr_hit[i]) return 0;
+    // Check data coverage
+    if (low_data_count == 0 || mid_data_count == 0 || high_data_count == 0) return 0;
+    // Need both reads and writes
+    if (read_transactions == 0 || write_transactions == 0) return 0;
+    return 1;
+  endfunction
+  
+  function void print_coverage_report();
+    int covered_addrs = 0;
+    for (int i = 0; i < 16; i++) if (addr_hit[i]) covered_addrs++;
+    
+    $display("\n==================== FINAL COVERAGE REPORT ====================");
+    $display("Total Transactions     : %0d", total_transactions);
+    $display("Write Operations       : %0d (%.1f%%)", write_transactions, 
+             total_transactions ? write_transactions*100.0/total_transactions : 0.0);
+    $display("Read Operations        : %0d (%.1f%%)", read_transactions,
+             total_transactions ? read_transactions*100.0/total_transactions : 0.0);  
+    $display("Successful Operations  : %0d (%.1f%%)", success_transactions,
+             total_transactions ? success_transactions*100.0/total_transactions : 0.0);
+    $display("Error Operations       : %0d (%.1f%%)", error_transactions,
+             total_transactions ? error_transactions*100.0/total_transactions : 0.0);
+    $display("Address Coverage       : %.1f%% (%0d/16 addresses)", 
+             (covered_addrs * 100.0) / 16.0, covered_addrs);
+    
+    $display("\nData Value Coverage (Write Operations):");
+    $display("  Low Data (0-85)      : %0d operations", low_data_count);
+    $display("  Mid Data (86-170)    : %0d operations", mid_data_count); 
+    $display("  High Data (171-255)  : %0d operations", high_data_count);
+    
+    $display("\nAddress Hit Distribution:");
+    for (int i = 0; i < 16; i++) begin
+      $display("  Address[%0d]: %0d hits %s", i, addr_count[i], 
+               addr_hit[i] ? "" : "(NOT COVERED)");
+    end
+    
+    $display("\n🎯 100%% COVERAGE STATUS: %s", 
+             is_100_percent_achieved() ? "✅ ACHIEVED!" : "❌ NOT ACHIEVED");
+             
+    if (!is_100_percent_achieved()) begin
+      $display("\nMissing Coverage Items:");
+      for (int i = 0; i < 16; i++) begin
+        if (!addr_hit[i]) $display("  - Address %0d not tested", i);
+      end
+      if (low_data_count == 0) $display("  - Low data range (0-85) not tested");
+      if (mid_data_count == 0) $display("  - Mid data range (86-170) not tested");  
+      if (high_data_count == 0) $display("  - High data range (171-255) not tested");
+    end
+    $display("================================================================\n");
+  endfunction
+  
+endclass
+
+//----------------------------------------------------------------------------
+// Original Generator Class (COMPLETELY UNCHANGED)
+//----------------------------------------------------------------------------
+class generator;
+  
+   transaction tr;
+   mailbox #(transaction) mbx;
+   int count = 0;
+  
+   event nextdrv; ///driver completed task of triggering interface
+   event nextsco; ///scoreboard completed its objective
+   event done; 
+   
+   
+  function new(mailbox #(transaction) mbx);
+      this.mbx = mbx;
+      tr=new();
+   endfunction; 
+ 
+   task run(); 
+    
+     repeat(count)   
+       begin    
+           assert(tr.randomize()) else $error("Randomization failed");  
+           mbx.put(tr);
+           tr.display("GEN");
+           @(nextdrv);
+           @(nextsco);
+         end  
+     ->done;
+   endtask
+  
+endclass
+
+//----------------------------------------------------------------------------
+// Original Driver Class (COMPLETELY UNCHANGED)
+//----------------------------------------------------------------------------
+class driver;
+  
+   virtual abp_if vif;
+   mailbox #(transaction) mbx;
+   transaction datac;
+  
+   event nextdrv;
+ 
+   function new(mailbox #(transaction) mbx);
+      this.mbx = mbx;
+   endfunction; 
+  
+  
+  task reset();
+    vif.presetn <= 1'b0;
+    vif.psel    <= 1'b0;
+    vif.penable <= 1'b0;
+    vif.pwdata  <= 0;
+    vif.paddr   <= 0;
+    vif.pwrite  <= 1'b0;
+    repeat(5) @(posedge vif.pclk);
+    vif.presetn <= 1'b1;
+    $display("[DRV] : RESET DONE");
+    $display("----------------------------------------------------------------------------");
+  endtask
+   
+  task run();
+    forever begin
+      
+      mbx.get(datac);
+      @(posedge vif.pclk);     
+      if(datac.pwrite == 1) ///write
+        begin
+        vif.psel    <= 1'b1;
+        vif.penable <= 1'b0;
+          vif.pwdata  <= datac.pwdata;
+          vif.paddr   <= datac.paddr;
+          vif.pwrite  <= 1'b1;
+            @(posedge vif.pclk);
+            vif.penable <= 1'b1; 
+            @(posedge vif.pclk); 
+            vif.psel <= 1'b0;
+            vif.penable <= 1'b0;
+            vif.pwrite <= 1'b0;
+            datac.display("DRV");
+            ->nextdrv;          
+        end
+      else if (datac.pwrite == 0) //read
+        begin
+            vif.psel <= 1'b1;
+        vif.penable <= 1'b0;
+          vif.pwdata <= 0;
+          vif.paddr <= datac.paddr;
+          vif.pwrite <= 1'b0;
+            @(posedge vif.pclk);
+            vif.penable <= 1'b1; 
+            @(posedge vif.pclk); 
+            vif.psel <= 1'b0;
+            vif.penable <= 1'b0;
+            vif.pwrite <= 1'b0;
+            datac.display("DRV"); 
+            ->nextdrv;
+        end
+      
+    end
+  endtask
+  
+endclass
+
+//----------------------------------------------------------------------------
+// Original Monitor Class (COMPLETELY UNCHANGED)
+//----------------------------------------------------------------------------
+class monitor;
+ 
+   virtual abp_if vif;
+   mailbox #(transaction) mbx;
+   transaction tr;
+ 
+   function new(mailbox #(transaction) mbx);
+      this.mbx = mbx;     
+   endfunction;
+  
+  task run();
+    tr = new();
+    forever begin
+              @(posedge vif.pclk);
+              if(vif.pready)
+              begin
+              tr.pwdata  = vif.pwdata;
+              tr.paddr   = vif.paddr;
+            tr.pwrite  = vif.pwrite;
+            tr.prdata  = vif.prdata;
+            tr.pslverr = vif.pslverr;
+            @(posedge vif.pclk);
+              tr.display("MON");
+              mbx.put(tr);
+              end
+              end
+   endtask
+ 
+endclass
+
+//----------------------------------------------------------------------------
+// Original Scoreboard Class (COMPLETELY UNCHANGED)
+//----------------------------------------------------------------------------
+class scoreboard;
+  
+   mailbox #(transaction) mbx;
+   transaction tr;
+   event nextsco;
+  
+  bit [7:0] pwdata[16] = '{default:0};
+  bit [7:0] rdata;
+  int err = 0;
+  
+   function new(mailbox #(transaction) mbx);
+      this.mbx = mbx;     
+    endfunction;
+  
+  task run();
+  forever 
+      begin
+      
+      mbx.get(tr);
+      tr.display("SCO");
+      
+      if( (tr.pwrite == 1'b1) && (tr.pslverr == 1'b0))  ///write access
+        begin 
+        pwdata[tr.paddr] = tr.pwdata;
+        $display("[SCO] : DATA STORED DATA : %0d ADDR: %0d",tr.pwdata, tr.paddr);
+        end
+      else if((tr.pwrite == 1'b0) && (tr.pslverr == 1'b0))  ///read access
+        begin
+         rdata = pwdata[tr.paddr];    
+        if( tr.prdata == rdata)
+          $display("[SCO] : Data Matched");           
+        else
+          begin
+          err++;
+          $display("[SCO] : Data Mismatched");
+          end 
+        end 
+      else if(tr.pslverr == 1'b1)
+        begin
+          $display("[SCO] : SLV ERROR DETECTED");
+        end  
+      $display("---------------------------------------------------------------------------------------------------");
+      ->nextsco;
+ 
+  end
+    
+  endtask
+  
+endclass
+
+//----------------------------------------------------------------------------
+// Environment Class - ONLY Coverage Integration Added
+//----------------------------------------------------------------------------
+class environment;
+ 
+    generator gen;
+    driver drv;
+    monitor mon;
+    scoreboard sco; 
+    coverage_collector cov;
+  
+    event nextgd; ///gen -> drv
+    event nextgs;  /// gen -> sco
+  
+  mailbox #(transaction) gdmbx; ///gen - drv
+  mailbox #(transaction) msmbx;  /// mon - sco
+  
+    virtual abp_if vif;
+ 
+  function new(virtual abp_if vif);
+       
+    gdmbx = new();
+    gen = new(gdmbx);
+    drv = new(gdmbx);
+    
+    msmbx = new();
+    mon = new(msmbx);
+    sco = new(msmbx);
+    
+    cov = new();
+    
+    this.vif = vif;
+    drv.vif = this.vif;
+    mon.vif = this.vif;
+    
+    gen.nextsco = nextgs;
+    sco.nextsco = nextgs;
+    
+    gen.nextdrv = nextgd;
+    drv.nextdrv = nextgd;
+ 
+  endfunction
+  
+  task pre_test();
+    drv.reset();
+  endtask
+  
+  task coverage_collection();
+    transaction tr;
+    forever begin
+      msmbx.peek(tr);
+      cov.sample_transaction(tr);
+      @(nextgs);
+    end
+  endtask
+  
+  task test();
+  fork
+    gen.run();
+    drv.run();
+    mon.run();
+    sco.run();
+    coverage_collection();
+  join_any
+  endtask
+  
+  task post_test();
+    wait(gen.done.triggered);  
+    $display("----Total number of Mismatch : %0d------",sco.err);
+    cov.print_coverage_report();
+    $finish();
+  endtask
+  
+  task run();
+    pre_test();
+    test();
+    post_test();  
+  endtask
+  
+endclass
+
+//----------------------------------------------------------------------------
+// CLEAN Testbench - No Conflicting Directed Tests
+//----------------------------------------------------------------------------
+ module tb;
+    
+   abp_if vif();
+ 
+   
+   apb_s dut (
+   vif.pclk,
+   vif.presetn,
+   vif.paddr,
+   vif.psel,
+   vif.penable,
+   vif.pwdata,
+   vif.pwrite,
+   vif.prdata,
+   vif.pready,
+   vif.pslverr
+   );
+   
+    initial begin
+      vif.pclk <= 0;
+    end
+    
+    always #10 vif.pclk <= ~vif.pclk;
+    
+    environment env;
+    
+    initial begin
+      $display("====================================================");
+      $display("  APB SLAVE VERIFICATION - 100%% COVERAGE TARGET");
+      $display("====================================================");
+      
+      env = new(vif);
+      env.gen.count = 300; // INCREASED: More tests for better coverage
+      env.run();
+    end
+      
+    initial begin
+      $dumpfile("dump.vcd");
+      $dumpvars;
+    end
+   
+endmodule
