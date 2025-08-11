@@ -162,7 +162,7 @@ class coverage_collector;
 endclass
 
 //----------------------------------------------------------------------------
-// Original Generator Class (COMPLETELY UNCHANGED)
+// Original Generator Class 
 //----------------------------------------------------------------------------
 class generator;
   
@@ -196,7 +196,7 @@ class generator;
 endclass
 
 //----------------------------------------------------------------------------
-// Original Driver Class (COMPLETELY UNCHANGED)
+// Original Driver Class
 //----------------------------------------------------------------------------
 class driver;
   
@@ -268,7 +268,7 @@ class driver;
 endclass
 
 //----------------------------------------------------------------------------
-// Original Monitor Class (COMPLETELY UNCHANGED)
+// Original Monitor Class
 //----------------------------------------------------------------------------
 class monitor;
  
@@ -301,7 +301,7 @@ class monitor;
 endclass
 
 //----------------------------------------------------------------------------
-// Original Scoreboard Class (COMPLETELY UNCHANGED)
+// Original Scoreboard Class
 //----------------------------------------------------------------------------
 class scoreboard;
   
@@ -354,7 +354,7 @@ class scoreboard;
 endclass
 
 //----------------------------------------------------------------------------
-// Environment Class - ONLY Coverage Integration Added
+// Environment Class 
 //----------------------------------------------------------------------------
 class environment;
  
@@ -435,7 +435,7 @@ class environment;
 endclass
 
 //----------------------------------------------------------------------------
-// CLEAN Testbench - No Conflicting Directed Tests
+// CLEAN Testbench 
 //----------------------------------------------------------------------------
  module tb;
     
