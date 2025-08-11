@@ -54,7 +54,7 @@ class transaction;
 endclass
 
 //----------------------------------------------------------------------------
-// CLEAN: Coverage Collector Class - No Debug Spam
+//Coverage Collector Class 
 //----------------------------------------------------------------------------
 class coverage_collector;
   
@@ -144,8 +144,8 @@ class coverage_collector;
                addr_hit[i] ? "" : "(NOT COVERED)");
     end
     
-    $display("\n🎯 100%% COVERAGE STATUS: %s", 
-             is_100_percent_achieved() ? "✅ ACHIEVED!" : "❌ NOT ACHIEVED");
+    $display("\n 100%% COVERAGE STATUS: %s", 
+             is_100_percent_achieved() ? "ACHIEVED!" : " NOT ACHIEVED");
              
     if (!is_100_percent_achieved()) begin
       $display("\nMissing Coverage Items:");
