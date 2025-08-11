@@ -47,7 +47,7 @@ class apb_transaction extends uvm_sequence_item;
 endclass
 
 //----------------------------------------------------------------------------
-// APB Sequence - 100% Coverage Focused
+// APB Sequence 
 //----------------------------------------------------------------------------
 class apb_sequence extends uvm_sequence #(apb_transaction);
   `uvm_object_utils(apb_sequence)
@@ -59,7 +59,7 @@ class apb_sequence extends uvm_sequence #(apb_transaction);
   task body();
     apb_transaction req;
     
-    `uvm_info("SEQ", "Starting sequence for 100% COVERAGE", UVM_LOW)
+    `uvm_info("SEQ", "Starting sequence COVERAGE", UVM_LOW)
     
     // Test ALL 16 addresses for 100% address coverage
     for(int addr = 0; addr < 16; addr++) begin
@@ -199,7 +199,7 @@ class apb_monitor extends uvm_monitor;
 endclass
 
 //----------------------------------------------------------------------------
-// Enhanced Coverage - 100% Focus
+// Enhanced Coverage 
 //----------------------------------------------------------------------------
 class apb_coverage extends uvm_subscriber #(apb_transaction);
   `uvm_component_utils(apb_coverage)
@@ -272,9 +272,9 @@ class apb_coverage extends uvm_subscriber #(apb_transaction);
     
     if(addr_cov_count == 16 && read_covered && write_covered && 
        low_data_covered && mid_data_covered && high_data_covered) begin
-      `uvm_info("COVERAGE", "🎯 *** 100% FUNCTIONAL COVERAGE ACHIEVED! *** 🎯", UVM_LOW)
+      `uvm_info("COVERAGE", " *** 100% FUNCTIONAL COVERAGE ACHIEVED! *** ", UVM_LOW)
     end else if(sv_coverage >= 99.0) begin
-      `uvm_info("COVERAGE", "🎯 *** EXCELLENT COVERAGE (>99%) ACHIEVED! *** 🎯", UVM_LOW)
+      `uvm_info("COVERAGE", " *** EXCELLENT COVERAGE (>99%) ACHIEVED! *** ", UVM_LOW)
     end else begin
       `uvm_info("COVERAGE", $sformatf("*** Good Coverage (%.1f%%) ***", sv_coverage), UVM_LOW)
     end
@@ -385,14 +385,14 @@ class apb_test extends uvm_test;
     apb_sequence seq;
     
     phase.raise_objection(this);
-    `uvm_info("TEST", "🎯 *** Starting 100% COVERAGE Test *** 🎯", UVM_LOW)
+    `uvm_info("TEST", " *** Starting 100% COVERAGE Test *** ", UVM_LOW)
     
     seq = apb_sequence::type_id::create("seq");
     seq.start(env.agent.sequencer);
     
     #1000;
     
-    `uvm_info("TEST", "🎯 *** 100% COVERAGE Test Completed *** 🎯", UVM_LOW)
+    `uvm_info("TEST", "*** 100% COVERAGE Test Completed *** ", UVM_LOW)
     phase.drop_objection(this);
   endtask
 endclass
